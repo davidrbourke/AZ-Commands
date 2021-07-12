@@ -1,0 +1,38 @@
+ACR_NAME='craz204drb'
+
+az acr create \
+	--resource-group rg-az-204-acr \
+	--name $ACR_NAME
+	--sku Standard
+
+az acr login --name $ACR_NAME
+
+-- Get login server
+az acr show --name $ACR_NAME --query loginServer --output tsv
+ACR_LOGINSERVER =$(az acr show --name $ACR_NAME --query loginServer --output tsv)
+
+-- I have to enable the Admin username and password and log in via docker
+docker login craz204drb.azurecr.io --username craz204drb --password <password here> !the password is auto-generated in Azure
+
+#craz204drb.azurecr.io
+
+-- Need to tag the docker image with an alias
+-- this is tagging existing build image
+docker tag webapp4:v1 $ACR_LOGINSERVER/webapp4:v1
+
+-- Push image to ACR
+docker push $ACR_LOGINSERVER/webapp:v1
+
+#Build image using ACR Task - to build the image in ACR and not locally
+#ACR Task reads the Dockerfile, zips up the code and copies to ACR and builds in ACR Tasks
+az acr build --image "webapp4:v1-acr-task" --registry $ACR_NAME .
+
+# Once push, view images in repository
+az acr repository list --name craz204drb
+az acr repository show-tags --name craz204drb --repository webapp4
+
+-- to use ACR Tasks to do the build
+-- this will copy all the code to ACR and do the build there
+az acr build --image "webapp4:v1-acr-task" --registry craz204drb .
+
+

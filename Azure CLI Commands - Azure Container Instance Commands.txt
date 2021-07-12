@@ -1,0 +1,121 @@
+ACR_NAME='craz204drb'
+ACR_REGISTRY_ID=$(az acr show --name $ACR_NAME --query id --output tsv)
+
+
+-- Need to create a service principal for ACI to pull image from ACR
+SP_NAME=acr-service-principal
+
+-- this command creates the service principla and returns the password into a variable
+SP_PASSWD=($az ad sp create-for-rbac \
+	--name http://$ACR_NAME-pull \
+	--scopes $ACR_REGISTRY_ID \
+	--role acrpull \
+	--query password \
+	--output tsv)
+
+-- Get app id of service principal, this becomes the username when authenticating to the ACR
+SP_APPID=$(az ad sp show \
+	--id http://$ACR_NAME-pull \
+	--query appId \
+	--output tsv)
+
+# Can put the above credentials into Key Vault for resuse
+
+ACR_LOGINSERVER=$(az acr show --name $ACR_NAME --query loginServer --output tsv)
+
+az container create \
+	--resource-group rg-az-204-acr
+	--name az204drbcrclidemo \
+	--dns-name-label az204drbcrclidemo \
+	--port 80 \
+	--image $ACR_LOGINSERVER/webapp4:latest \
+	--registry-login-server $ACR_LOGINSERVER \
+	--registry-username $SP_APPID \
+	--registry-password $SP_PASSWD
+
+az container show --name az204drbclidemo --resource-group rg-az-204-acr
+{
+  "containers": [
+    {
+      "command": null,
+      "environmentVariables": [],
+      "image": "craz204drb.azurecr.io/webapp4:latest",
+      "instanceView": {
+        "currentState": {
+          "detailStatus": "",
+          "exitCode": null,
+          "finishTime": null,
+          "startTime": "2021-07-03T11:15:06.313000+00:00",
+          "state": "Running"
+        },
+        "events": null,
+        "previousState": null,
+        "restartCount": 0
+      },
+      "livenessProbe": null,
+      "name": "az204drbclidemo",
+      "ports": [
+        {
+          "port": 80,
+          "protocol": "TCP"
+        }
+      ],
+      "readinessProbe": null,
+      "resources": {
+        "limits": null,
+        "requests": {
+          "cpu": 1.0,
+          "gpu": null,
+          "memoryInGb": 1.5
+        }
+      },
+      "volumeMounts": null
+    }
+  ],
+  "diagnostics": null,
+  "dnsConfig": null,
+  "id": "/subscriptions/df839d18-3a5b-4578-9c5d-94279b4a2acb/resourceGroups/rg-az-204-acr/providers/Microsoft.ContainerInstance/containerGroups/az204drbclidemo",
+  "identity": null,
+  "imageRegistryCredentials": [
+    {
+      "password": null,
+      "server": "craz204drb.azurecr.io",
+      "username": "a841207f-efd2-44ae-9136-395babbcc43d"
+    }
+  ],
+  "instanceView": {
+    "events": [],
+    "state": "Running"
+  },
+  "ipAddress": {
+    "dnsNameLabel": "az204drbclidemo",
+    "fqdn": "az204drbclidemo.uksouth.azurecontainer.io",
+    "ip": "20.77.160.88",
+    "ports": [
+      {
+        "port": 80,
+        "protocol": "TCP"
+      }
+    ],
+    "type": "Public"
+  },
+  "location": "uksouth",
+  "name": "az204drbclidemo",
+  "networkProfile": null,
+  "osType": "Linux",
+  "provisioningState": "Succeeded",
+  "resourceGroup": "rg-az-204-acr",
+  "restartPolicy": "Always",
+  "tags": {},
+  "type": "Microsoft.ContainerInstance/containerGroups",
+  "volumes": null
+}
+
+-- Get Full Qualified Domain Name
+az container show --name az204drbclidemo --resource-group rg-az-204-acr --query ipAddress.fqdn -o tsv
+
+--Get the container output console (logs)
+az container logs --name az204drbclidemo --resource-group rg-az-204-acr
+
+-- delete the container
+az container delete --name az204drbclidemo --resource-group rg-az-204-acr --yes

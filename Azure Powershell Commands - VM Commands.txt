@@ -1,0 +1,36 @@
+With powershell, need to create the Credentials object first
+
+
+Connect-AzAccount -SubscriptionName ''
+Set-AzContext -SubscriptionName ''
+
+New-AzResourceGroup -Name "psdemo-rg" -Location "UKSouth"
+
+$username = 'demoadmin'
+$password = ConvertTo-SecureString 'Password123$' -AsPlainText -Force
+
+$WindowsCred = New-Object System.Management.Automation.PSCredential ($username, $password)
+
+New-AzVm `
+	-ResourceGroupName 'psdemo-rg' `
+	-Name 'psdemo-win-az' `
+	-Image 'Win2019Datacenter' `
+	-Credential $WindowsCred `
+	-OpenPorts 3389
+
+-- In powershell you can specify to open the port when creating the VM, this is different than the CLI
+
+Get-AzPublicIpAddress `
+	-ResourceGroupName 'psdemo-rg' `
+	-Name 'psdemo-win-az' | Select-Object IpAddress
+
+Remove-AzResourceGroup -Name 'psdemo-rg'
+
+
+-- Deploy ARM template via Powershell
+New-AzResourceGroupDeployment `
+	-Name mydeployment -ResourceGroupName 'psdemo-rg' `
+	-TemplateFile './template/template.json' `
+	-TemplateParameterFile './template/parameters.json'
+
+

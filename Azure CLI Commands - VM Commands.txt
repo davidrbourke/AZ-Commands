@@ -1,0 +1,140 @@
+Azure CLI Commands
+
+az login
+az group list
+az group list --output table
+
+VMs
+Only the following 4 parameters are requried:
+
+az vm create --resource-group az-204-rg-2 --name az204vmdrb1 --image UbuntuLTS --location uksouth
+
+To include other parameters:
+az vm create --resource-group az-204-rg-2 --name az204vmdrb1 --image UbuntuLTS --location uksouth --admin-user azureuser --generate-ssh-keys --verbose
+az vm create --resource-group az-204-rg-2 --name az204vmdrb1 --image UbuntuLTS --location uksouth --size "Standard_DS2_v2"
+
+To create Linux VM and assign ssh key
+az vm create \ 
+	--resource-group az-204-rg-2 \
+	--name az204vmdrb1 \
+	--image UbuntuLTS \
+	--location uksouth \
+	--admin-username "demoadmin" \
+	--authentication-type "ssh" \
+	--ssh-key-value ~/.ssh/id_rsa.pub
+
+To create a windows VM with username and password
+az vm create --resource-group "" --name "" --image "win2019datacenter" --admin-username "demoadmin" --admin-password "password123$"
+
+az vm list-sizes --output table
+Default size if not specified is "Standard_DS1_v2"
+
+
+The ssh key flag is only required for linux OS, not Windows.
+Output:
+{
+  "fqdns": "",
+  "id": "/subscriptions/df839d18-3a5b-4578-9c5d-94279b4a2acb/resourceGroups/az-204-rg-2/providers/Microsoft.Compute/virtualMachines/az204vmdrb1",
+  "location": "uksouth",
+  "macAddress": "00-0D-3A-D5-FE-23",
+  "powerState": "VM running",
+  "privateIpAddress": "10.0.0.4",
+  "publicIpAddress": "20.58.12.73",
+  "resourceGroup": "az-204-rg-2",
+  "zones": ""
+}
+
+All the following resources were created:
+
+az204vmdrb1VNET                                     az-204-rg-2                     uksouth     Microsoft.Network/virtualNetworks
+az204vmdrb1PublicIP                                 az-204-rg-2                     uksouth     Microsoft.Network/publicIPAddresses
+az204vmdrb1NSG                                      az-204-rg-2                     uksouth     Microsoft.Network/networkSecurityGroups
+NetworkWatcher_uksouth                              NetworkWatcherRG                uksouth     Microsoft.Network/networkWatchers
+az204vmdrb1VMNic                                    az-204-rg-2                     uksouth     Microsoft.Network/networkInterfaces
+az204vmdrb1                                         az-204-rg-2                     uksouth     Microsoft.Compute/virtualMachines
+az204vmdrb1_disk1_3ca6a78e053d446fb5aa7ae4485c59a0  AZ-204-RG-2                     uksouth     Microsoft.Compute/disks
+
+To SSH onto the VM:
+
+ssh azureuser@<public-ip-address>
+ssh azureuser@20.58.12.73
+
+List common VM images
+az vm image list --output table
+az vm image list --publisher Microsoft --output table --all
+az vm image list --location eastus --output table
+
+
+List resize options
+az vm list-vm-resize-options --resource-group az-204-rg-2 --name az204vmdrb1
+
+Resize
+az vm resize --resource-group az-204-rg-2 --name az204vmdrb1 --size "Standard_D2s_v3"
+
+List your VMs
+az vm list --output table
+
+Get IP Address
+az vm list-ip-addresses -n az204vmdrb1 -o table
+
+VirtualMachine    PublicIPAddresses    PrivateIPAddresses
+----------------  -------------------  --------------------
+az204vmdrb1       20.58.12.73          10.0.0.4
+
+
+Show VM detail
+az vm show -g az-204-rg-2 -n az204vmdrb1
+
+JMESPath
+-- get Sub part of json
+az vm show -g az-204-rg-2 -n az204vmdrb1 --query storageProfile.osDisk
+
+-- get first item from an array
+az vm show -g az-204-rg-2 -n az204vmdrb1 --query osProfile.linuxConfiguration.ssh.publicKeys[0]
+
+-- filter an array
+[?age > 5]
+
+-- use tsv: tab seperated values to get that only includes the actual data (e.g. to use in scripting file to get variable)
+az vm show -g az-204-rg-2 -n az204vmdrb1 --query "networkProfile.networkInterfaces[].id" -o tsv
+
+-- Stop vm
+ az vm stop -g az-204-rg-2 -n az204vmdrb1
+
+-- Start vm
+ az vm start -g az-204-rg-2 -n az204vmdrb1
+
+-- Get the status of the VM
+az vm get-instance-view --name az204vmdrb1 -g az-204-rg-2 --query "instanceView.statuses[?starts_with(code,'PowerState/')].displayStatus" -o tsv
+
+-- Start the VM
+az vm start  --name az204vmdrb1 -g az-204-rg-2
+
+
+-- Restart
+az vm restart --name az204vmdrb1 -g az-204-rg-2 --no-wait
+
+Install NGINX on LinuxVM
+ssh onto VM
+sudo apt-get -y update && sudo apt-get -y install nginx
+-- open port 80 - this adds a rule to the Network Security Group for the vm
+az vm open-port --port 80 --resource-group az-204-rg-2 --name az204vmdrb1
+
+
+-- Delete the resource group and everything in it
+ az group delete -g az-204-rg-2
+
+-- Deploy ARM Template via CLI
+resourceGroup="templateDeployTest"
+az group create create -n $resourceGroup -l uksouth
+
+deploymentName="MyDeployment"
+vmPassword='Password123$'
+az group deployment create -g $resourceGroup -n $deploymentName \
+	--template-file MyVM.json
+	--parameters @MySite.parameters.json // Pointing to local file
+	--parameters "administratorLoginPassword=$vmPasswprd" // Can still override settings from the parameters.json
+
+To update an ARM deployment, run the same command above, but provide one of the extra parameters:
+--mode Complete // this will add/remove things not matching
+--mode Incremental // this will add but not remove anything
